@@ -1,0 +1,122 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ─────────────────────────────────────────────────────
+
+    // Check if the request is from an authenticated user
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the authenticated user owns the specified userId path
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Ensure new documents include the correct userId field
+    function hasValidUserId() {
+      return request.resource.data.get('userId', null) == request.auth.uid;
+    }
+
+    // Ensure timestamps are provided on create
+    function hasTimestamps() {
+      return request.resource.data.keys().hasAll(['createdAt', 'updatedAt']);
+    }
+
+    // ─── User Profiles ────────────────────────────────────────────────────────
+
+    match /users/{userId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId) && hasValidUserId();
+      allow update: if isOwner(userId);
+
+      // ── Resumes ─────────────────────────────────────────────────────────────
+
+      match /resumes/{resumeId} {
+        allow read, write: if isOwner(userId);
+
+        match /experiences/{expId} {
+          allow read, write: if isOwner(userId);
+        }
+
+        match /education/{eduId} {
+          allow read, write: if isOwner(userId);
+        }
+
+        match /skills/{skillId} {
+          allow read, write: if isOwner(userId);
+        }
+
+        match /projects/{projectId} {
+          allow read, write: if isOwner(userId);
+        }
+
+        match /certifications/{certId} {
+          allow read, write: if isOwner(userId);
+        }
+
+        match /achievements/{achId} {
+          allow read, write: if isOwner(userId);
+        }
+
+        match /languages/{langId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
+
+      // ── Cover Letters ────────────────────────────────────────────────────────
+
+      match /coverLetters/{coverLetterId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ── AI Generations ───────────────────────────────────────────────────────
+
+      match /aiGenerations/{generationId} {
+        allow read: if isOwner(userId);
+        // Only Cloud Functions (Admin SDK) can write AI generations
+        allow write: if false;
+      }
+
+      // ── Job Applications ─────────────────────────────────────────────────────
+
+      match /applications/{applicationId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ── Job Analyses ─────────────────────────────────────────────────────────
+
+      match /jobAnalyses/{analysisId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only Cloud Functions write analyses
+      }
+
+      // ── Usage (Monthly Tracking) ─────────────────────────────────────────────
+
+      match /usage/{usageId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only Cloud Functions update usage
+      }
+
+      // ── Subscriptions ────────────────────────────────────────────────────────
+
+      match /subscriptions/{subscriptionId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only Cloud Functions manage subscriptions
+      }
+
+      // ── Notifications ────────────────────────────────────────────────────────
+
+      match /notifications/{notificationId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if false; // Only Cloud Functions create notifications
+      }
+    }
+
+    // ─── Deny all other access ─────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
